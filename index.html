@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#1e2035" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="VHF 定位" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/svg+xml" href="icons/icon.svg" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <title>VHF Triangulation — 野生動物追蹤</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    tailwindcss.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            surface: '#1e2035',
+            'surface-alt': '#282a45',
+            'surface-card': '#2f3255',
+            accent: '#1a4a80',
+            'accent-light': '#2560a0',
+            highlight: '#e94560',
+            'highlight-glow': '#ff6b81',
+            emerald: '#10b981',
+            'emerald-dark': '#065f46',
+            text: '#ffffff',
+            'text-dim': '#d0d0e0',
+            'text-muted': '#a8a8c0',
+          },
+          boxShadow: {
+            'glow-red': '0 0 20px rgba(233,69,96,0.3)',
+            'glow-blue': '0 0 20px rgba(59,130,246,0.3)',
+            'glow-green': '0 0 20px rgba(16,185,129,0.3)',
+            'card': '0 4px 24px rgba(0,0,0,0.4)',
+            'input': 'inset 0 2px 4px rgba(0,0,0,0.3)',
+          }
+        }
+      }
+    }
+  </script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      background: #1e2035;
+      overscroll-behavior: none;
+      -webkit-tap-highlight-color: transparent;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    }
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    input[type="number"] { -moz-appearance: textfield; }
+
+    .header-bg {
+      background: linear-gradient(135deg, #282a45 0%, #2f3255 50%, #1a4a80 100%);
+      position: relative; overflow: hidden;
+    }
+    .header-bg::before {
+      content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+      background: radial-gradient(ellipse at center, rgba(233,69,96,0.08) 0%, transparent 70%);
+      animation: pulse 6s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 0.5; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.1); }
+    }
+    .btn-calculate {
+      background: linear-gradient(135deg, #e94560 0%, #c73e54 100%);
+      position: relative; overflow: hidden;
+    }
+    .btn-calculate::after {
+      content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+      background: radial-gradient(ellipse at center, rgba(255,255,255,0.1) 0%, transparent 60%);
+      opacity: 0; transition: opacity 0.3s;
+    }
+    .btn-calculate:active::after { opacity: 1; }
+    .card-block { transition: transform 0.15s ease, box-shadow 0.15s ease; }
+    .card-block:active { transform: scale(0.995); }
+    .field-input:focus { box-shadow: 0 0 0 2px rgba(233,69,96,0.4), inset 0 2px 4px rgba(0,0,0,0.3); }
+    @keyframes slideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+    .result-enter { animation: slideUp 0.35s ease-out; }
+    .badge {
+      display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px;
+      border-radius: 9999px; font-size: 0.7rem; font-weight: 600;
+      letter-spacing: 0.05em; text-transform: uppercase;
+    }
+    #map { z-index: 0; }
+    .leaflet-control-zoom a { background: #2f3255 !important; color: #fff !important; border-color: #1a4a80 !important; }
+    .leaflet-control-zoom a:hover { background: #3a3d65 !important; }
+    .custom-marker-label {
+      background: rgba(30,32,53,0.9); border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 8px; padding: 3px 8px; color: #fff; font-size: 12px;
+      font-weight: 700; white-space: nowrap; backdrop-filter: blur(4px);
+    }
+    .leaflet-popup-content-wrapper { background: #2f3255 !important; color: #fff !important; border-radius: 12px !important; box-shadow: 0 4px 20px rgba(0,0,0,0.5) !important; }
+    .leaflet-popup-tip { background: #2f3255 !important; }
+    .leaflet-popup-content { margin: 10px 14px !important; font-size: 13px; }
+    .leaflet-control-locate {
+      background: #2f3255 !important; border: 2px solid rgba(255,255,255,0.2) !important;
+      border-radius: 8px !important; width: 36px; height: 36px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    .leaflet-control-locate:hover { background: #3a3d65 !important; }
+  </style>
+</head>
+<body class="bg-surface text-text min-h-screen">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    // ============================================================
+    // Math Utilities
+    // ============================================================
+    const toRad = (d) => d * Math.PI / 180;
+    const toDeg = (r) => r * 180 / Math.PI;
+    const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+    const mod = (x, m) => ((x % m) + m) % m;
+
+    function haversineDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371000, p1 = toRad(lat1), p2 = toRad(lat2);
+      const dp = toRad(lat2 - lat1), dl = toRad(lon2 - lon1);
+      const a = Math.sin(dp/2)**2 + Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    }
+
+    function destinationPoint(lat, lon, bearing, dist) {
+      const R = 6371000, d = dist/R, b = toRad(bearing);
+      const p1 = toRad(lat), l1 = toRad(lon);
+      const p2 = Math.asin(Math.sin(p1)*Math.cos(d) + Math.cos(p1)*Math.sin(d)*Math.cos(b));
+      const l2 = l1 + Math.atan2(Math.sin(b)*Math.sin(d)*Math.cos(p1), Math.cos(d)-Math.sin(p1)*Math.sin(p2));
+      return [toDeg(p2), ((toDeg(l2)+540)%360)-180];
+    }
+
+    // Two-ray intersection (spherical trigonometry, Aviation Formulary)
+    function twoRayIntersection(lat1, lon1, brng1, lat2, lon2, brng2) {
+      const p1=toRad(lat1), l1=toRad(lon1), t1=toRad(brng1);
+      const p2=toRad(lat2), l2=toRad(lon2), t2=toRad(brng2);
+      const dp=p2-p1, dl=l2-l1;
+      const d12 = 2*Math.asin(Math.sqrt(Math.sin(dp/2)**2 + Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2));
+      if (Math.abs(d12)<1e-12) return null;
+      const cosA=(Math.sin(p2)-Math.sin(p1)*Math.cos(d12))/(Math.sin(d12)*Math.cos(p1));
+      const cosB=(Math.sin(p1)-Math.sin(p2)*Math.cos(d12))/(Math.sin(d12)*Math.cos(p2));
+      const tA=Math.acos(clamp(cosA,-1,1)), tB=Math.acos(clamp(cosB,-1,1));
+      let t12,t21;
+      if(Math.sin(dl)>0){t12=tA;t21=2*Math.PI-tB}else{t12=2*Math.PI-tA;t21=tB}
+      const a1=mod(t1-t12,2*Math.PI), a2=mod(t21-t2,2*Math.PI);
+      if(Math.abs(Math.sin(a1))<1e-10&&Math.abs(Math.sin(a2))<1e-10) return null;
+      if(Math.sin(a1)*Math.sin(a2)<0) return null;
+      const a3=Math.acos(clamp(-Math.cos(a1)*Math.cos(a2)+Math.sin(a1)*Math.sin(a2)*Math.cos(d12),-1,1));
+      const d13=Math.atan2(Math.sin(d12)*Math.sin(a1)*Math.sin(a2),Math.cos(a2)+Math.cos(a1)*Math.cos(a3));
+      const p3=Math.asin(clamp(Math.sin(p1)*Math.cos(d13)+Math.cos(p1)*Math.sin(d13)*Math.cos(t1),-1,1));
+      const dl13=Math.atan2(Math.sin(t1)*Math.sin(d13)*Math.cos(p1),Math.cos(d13)-Math.sin(p1)*Math.sin(p3));
+      return { lat: toDeg(p3), lon: ((toDeg(l1+dl13)+540)%360)-180 };
+    }
+
+    // ============================================================
+    // Least Squares bearing-line intersection (Lenth method)
+    // Given N stations with (lat, lon, bearing), find the point
+    // minimizing sum of squared perpendicular distances to all rays.
+    // Works in local ENU coordinates for accuracy.
+    // ============================================================
+    function leastSquaresIntersection(stations) {
+      // Reference point: centroid of stations
+      const mLat = stations.reduce((s,p)=>s+p.lat,0)/stations.length;
+      const mLon = stations.reduce((s,p)=>s+p.lon,0)/stations.length;
+
+      // Convert to local meters (flat-earth approx around centroid)
+      const R = 6371000;
+      const toLocal = (lat, lon) => {
+        const x = toRad(lon - mLon) * R * Math.cos(toRad(mLat));
+        const y = toRad(lat - mLat) * R;
+        return [x, y];
+      };
+      const fromLocal = (x, y) => ({
+        lat: mLat + toDeg(y / R),
+        lon: mLon + toDeg(x / (R * Math.cos(toRad(mLat)))),
+      });
+
+      // For each bearing line: direction unit vector d = (sin(brng), cos(brng))
+      // Normal to the line: n = (cos(brng), -sin(brng))
+      // The line passes through station point p.
+      // Minimize sum_i [ n_i . (x - p_i) ]^2
+      // This gives (A^T A) x = A^T b  where each row is n_i, and b_i = n_i . p_i
+
+      let ATA00=0, ATA01=0, ATA11=0, ATb0=0, ATb1=0;
+      for (const s of stations) {
+        const [px, py] = toLocal(s.lat, s.lon);
+        const brng = toRad(s.bearing);
+        const nx = Math.cos(brng);   // normal x
+        const ny = -Math.sin(brng);  // normal y
+        const bi = nx*px + ny*py;
+        ATA00 += nx*nx;
+        ATA01 += nx*ny;
+        ATA11 += ny*ny;
+        ATb0 += nx*bi;
+        ATb1 += ny*bi;
+      }
+
+      const det = ATA00*ATA11 - ATA01*ATA01;
+      if (Math.abs(det) < 1e-20) return null; // degenerate
+
+      const x = (ATA11*ATb0 - ATA01*ATb1) / det;
+      const y = (ATA00*ATb1 - ATA01*ATb0) / det;
+
+      return fromLocal(x, y);
+    }
+
+    // Compute all pairwise intersections + convex hull for error polygon
+    function computeMultiResult(stations) {
+      if (stations.length < 2) return { error: '至少需要 2 個接收點' };
+
+      const valid = stations.filter(s => {
+        const lat = parseFloat(s.lat), lon = parseFloat(s.lon), b = parseFloat(s.bearing);
+        return !isNaN(lat) && !isNaN(lon) && !isNaN(b) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180 && b >= 0 && b <= 360;
+      });
+      if (valid.length < 2) return { error: '有效接收點不足 2 個，請檢查輸入' };
+
+      const parsed = valid.map(s => ({ lat: parseFloat(s.lat), lon: parseFloat(s.lon), bearing: parseFloat(s.bearing) }));
+
+      // All pairwise intersections
+      const intersections = [];
+      for (let i = 0; i < parsed.length; i++) {
+        for (let j = i + 1; j < parsed.length; j++) {
+          const pt = twoRayIntersection(
+            parsed[i].lat, parsed[i].lon, parsed[i].bearing,
+            parsed[j].lat, parsed[j].lon, parsed[j].bearing
+          );
+          if (pt) intersections.push(pt);
+        }
+      }
+
+      if (intersections.length === 0) return { error: '所有射線無有效交點（可能平行或發散）' };
+
+      // Least squares best estimate
+      const bestEstimate = leastSquaresIntersection(parsed);
+      if (!bestEstimate) return { error: '最小平方法求解失敗（射線方向過於接近）' };
+
+      // Convex hull of intersections for error polygon
+      const polygon = convexHull(intersections);
+
+      return {
+        bestEstimate,
+        intersections,
+        polygon,
+        stations: parsed,
+      };
+    }
+
+    // Graham scan convex hull
+    function convexHull(points) {
+      if (points.length <= 2) return points;
+      const pts = points.map(p => ({ ...p }));
+      // Find bottom-most (then left-most)
+      pts.sort((a, b) => a.lat - b.lat || a.lon - b.lon);
+      const pivot = pts[0];
+      const rest = pts.slice(1).sort((a, b) => {
+        const angA = Math.atan2(a.lat - pivot.lat, a.lon - pivot.lon);
+        const angB = Math.atan2(b.lat - pivot.lat, b.lon - pivot.lon);
+        return angA - angB || haversineDistance(pivot.lat, pivot.lon, a.lat, a.lon) - haversineDistance(pivot.lat, pivot.lon, b.lat, b.lon);
+      });
+      const all = [pivot, ...rest];
+      const stack = [all[0], all[1]];
+      const cross = (o, a, b) => (a.lon-o.lon)*(b.lat-o.lat) - (a.lat-o.lat)*(b.lon-o.lon);
+      for (let i = 2; i < all.length; i++) {
+        while (stack.length > 1 && cross(stack[stack.length-2], stack[stack.length-1], all[i]) <= 0) stack.pop();
+        stack.push(all[i]);
+      }
+      return stack;
+    }
+
+    // ============================================================
+    // Point colors palette (cycles for N points)
+    // ============================================================
+    const POINT_COLORS = [
+      { hex: '#f87171', name: 'red',    glow: 'rgba(248,113,113,0.8)', border: 'border-red-400/50',    shadow: 'shadow-glow-red',  tagBg: 'bg-red-400/20' },
+      { hex: '#60a5fa', name: 'blue',   glow: 'rgba(96,165,250,0.8)',  border: 'border-blue-400/50',   shadow: '',                  tagBg: 'bg-blue-400/20' },
+      { hex: '#fbbf24', name: 'amber',  glow: 'rgba(251,191,36,0.8)', border: 'border-amber-400/50',  shadow: '',                  tagBg: 'bg-amber-400/20' },
+      { hex: '#a78bfa', name: 'violet', glow: 'rgba(167,139,250,0.8)',border: 'border-violet-400/50', shadow: '',                  tagBg: 'bg-violet-400/20' },
+      { hex: '#f472b6', name: 'pink',   glow: 'rgba(244,114,182,0.8)',border: 'border-pink-400/50',   shadow: '',                  tagBg: 'bg-pink-400/20' },
+      { hex: '#34d399', name: 'teal',   glow: 'rgba(52,211,153,0.8)', border: 'border-emerald-400/50',shadow: '',                  tagBg: 'bg-emerald-400/20' },
+      { hex: '#fb923c', name: 'orange', glow: 'rgba(251,146,60,0.8)', border: 'border-orange-400/50', shadow: '',                  tagBg: 'bg-orange-400/20' },
+      { hex: '#38bdf8', name: 'sky',    glow: 'rgba(56,189,248,0.8)', border: 'border-sky-400/50',    shadow: '',                  tagBg: 'bg-sky-400/20' },
+    ];
+    const getColor = (i) => POINT_COLORS[i % POINT_COLORS.length];
+    const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+    // ============================================================
+    // InputField
+    // ============================================================
+    function InputField({ label, unit, placeholder, value, onChange }) {
+      return (
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="text-white text-xs font-semibold tracking-wider uppercase">{label}</label>
+            <span className="badge bg-surface text-white font-bold">{unit}</span>
+          </div>
+          <input
+            type="number" inputMode="decimal" step="any"
+            placeholder={placeholder} value={value}
+            onChange={(e) => onChange(e.target.value)}
+            className="field-input w-full h-14 bg-white text-black text-lg px-4 rounded-xl border border-surface-card focus:border-highlight/60 outline-none transition-all duration-200 placeholder-gray-400 shadow-input"
+          />
+        </div>
+      );
+    }
+
+    // ============================================================
+    // PointInput (dynamic, with delete button)
+    // ============================================================
+    function PointInput({ index, value, onChange, onDelete, canDelete }) {
+      const handleField = (field) => (val) => onChange({ ...value, [field]: val });
+      const [gpsLoading, setGpsLoading] = useState(false);
+      const c = getColor(index);
+      const letter = LETTERS[index] || (index + 1);
+
+      const fillGPS = () => {
+        if (!navigator.geolocation) { alert('此裝置不支援 GPS 定位'); return; }
+        setGpsLoading(true);
+        navigator.geolocation.getCurrentPosition(
+          (pos) => { onChange({ ...value, lat: pos.coords.latitude.toFixed(6), lon: pos.coords.longitude.toFixed(6) }); setGpsLoading(false); },
+          (err) => { alert('GPS 定位失敗: ' + err.message); setGpsLoading(false); },
+          { enableHighAccuracy: true, timeout: 15000 }
+        );
+      };
+
+      return (
+        <div className={`card-block bg-surface-card rounded-2xl p-5 border ${c.border} shadow-card`}
+             style={{boxShadow: `0 0 20px ${c.hex}30`}}>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-4 h-4 rounded-full" style={{background: c.hex, boxShadow: `0 0 12px ${c.glow}`}}></div>
+              <h2 className="text-lg font-bold text-white">接收點 {letter}</h2>
+              <span className={`badge ${c.tagBg} text-white`}>Point {letter}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={fillGPS} disabled={gpsLoading}
+                className="flex items-center gap-1.5 bg-accent/60 hover:bg-accent-light text-white text-xs font-semibold px-3 py-2 rounded-xl active:scale-95 transition-all duration-150 border border-accent-light/30">
+                {gpsLoading
+                  ? <span className="inline-block w-4 h-4 border-2 border-text-dim border-t-transparent rounded-full animate-spin"></span>
+                  : <span>📍</span>}
+                {gpsLoading ? '...' : 'GPS'}
+              </button>
+              {canDelete && (
+                <button type="button" onClick={onDelete}
+                  className="flex items-center justify-center w-9 h-9 bg-red-500/20 hover:bg-red-500/40 text-red-400 rounded-xl active:scale-95 transition-all duration-150 border border-red-500/30 text-lg font-bold">
+                  ×
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="space-y-3">
+            <InputField label="緯度" unit="Lat" placeholder="24.7652" value={value.lat} onChange={handleField('lat')} />
+            <InputField label="經度" unit="Lon" placeholder="121.1580" value={value.lon} onChange={handleField('lon')} />
+            <InputField label="方位角" unit="0–360°" placeholder="135" value={value.bearing} onChange={handleField('bearing')} />
+          </div>
+        </div>
+      );
+    }
+
+    // ============================================================
+    // ResultDisplay (multi-point)
+    // ============================================================
+    function ResultDisplay({ result }) {
+      if (!result) return null;
+      const [copied, setCopied] = useState(false);
+
+      if (result.error) {
+        return (
+          <div className="result-enter bg-yellow-500/10 rounded-2xl p-5 border border-yellow-500/40 shadow-card">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-yellow-500/20 flex items-center justify-center text-xl flex-shrink-0">⚠️</div>
+              <div>
+                <h3 className="text-yellow-400 font-bold text-sm mb-1">計算錯誤</h3>
+                <p className="text-yellow-300/90 text-base">{result.error}</p>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      const { bestEstimate, intersections, stations } = result;
+      const copyCoords = () => {
+        navigator.clipboard.writeText(`${bestEstimate.lat.toFixed(6)}, ${bestEstimate.lon.toFixed(6)}`).then(() => {
+          setCopied(true); setTimeout(() => setCopied(false), 2000);
+        });
+      };
+      const mapsUrl = `https://www.google.com/maps?q=${bestEstimate.lat.toFixed(6)},${bestEstimate.lon.toFixed(6)}`;
+      const formatDist = (m) => m >= 1000 ? (m/1000).toFixed(2)+' km' : m.toFixed(1)+' m';
+
+      return (
+        <div className="result-enter bg-surface-card rounded-2xl border border-emerald/40 shadow-card shadow-glow-green overflow-hidden">
+          <div className="bg-emerald/10 px-5 py-3 border-b border-emerald/20 flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-emerald/20 flex items-center justify-center">
+              <span className="text-white text-lg">✓</span>
+            </div>
+            <h2 className="text-white font-bold">最可能的發報器位置</h2>
+            <span className="badge bg-emerald/20 text-white">最小平方法</span>
+          </div>
+          <div className="p-5 space-y-4">
+            <div className="bg-surface rounded-xl p-4 text-center">
+              <div className="text-white text-xs font-semibold tracking-widest uppercase mb-2">座標 Coordinates</div>
+              <p className="text-2xl font-bold text-white tracking-wide font-mono">{bestEstimate.lat.toFixed(6)}</p>
+              <p className="text-2xl font-bold text-white tracking-wide font-mono">{bestEstimate.lon.toFixed(6)}</p>
+            </div>
+
+            {/* Distances to each station */}
+            <div className="grid grid-cols-2 gap-2">
+              {stations.map((s, i) => {
+                const c = getColor(i);
+                const d = haversineDistance(s.lat, s.lon, bestEstimate.lat, bestEstimate.lon);
+                return (
+                  <div key={i} className="rounded-xl p-2.5 text-center border" style={{background: c.hex+'15', borderColor: c.hex+'40'}}>
+                    <div className="text-white text-xs mb-0.5">距離 {LETTERS[i]}</div>
+                    <div className="text-white font-bold text-sm">{formatDist(d)}</div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {intersections.length > 1 && (
+              <div className="bg-surface rounded-xl p-3 text-center">
+                <div className="text-white text-xs mb-1">射線交點數量</div>
+                <div className="text-white font-bold">{intersections.length} 個交點</div>
+                <div className="text-white text-xs mt-1">誤差多邊形已繪製於地圖上</div>
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <button onClick={copyCoords}
+                className={`flex-1 h-12 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 active:scale-95 transition-all duration-150 border ${
+                  copied ? 'bg-emerald/20 border-emerald/40 text-white' : 'bg-accent/60 border-accent-light/30 text-white hover:bg-accent-light'
+                }`}>
+                {copied ? '✓ 已複製' : '📋 複製座標'}
+              </button>
+              <a href={mapsUrl} target="_blank" rel="noopener noreferrer"
+                className="flex-1 h-12 bg-emerald-dark/60 border border-emerald/30 text-white rounded-xl font-semibold text-sm flex items-center justify-center gap-2 active:scale-95 transition-all duration-150 hover:bg-emerald-dark">
+                🗺 Google Maps
+              </a>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ============================================================
+    // MapView
+    // ============================================================
+    function MapView({ points, result }) {
+      const mapRef = useRef(null);
+      const mapInstanceRef = useRef(null);
+      const layerGroupRef = useRef(null);
+
+      useEffect(() => {
+        if (mapInstanceRef.current) return;
+        const map = L.map(mapRef.current, { center: [23.5, 121], zoom: 8, zoomControl: false });
+
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+          attribution: '&copy; Esri, Maxar, Earthstar Geographics', maxZoom: 19,
+        }).addTo(map);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png', {
+          maxZoom: 19, pane: 'overlayPane',
+        }).addTo(map);
+
+        L.control.zoom({ position: 'topright' }).addTo(map);
+
+        const LocateControl = L.Control.extend({
+          options: { position: 'topright' },
+          onAdd: function () {
+            const btn = L.DomUtil.create('div', 'leaflet-control-locate');
+            btn.innerHTML = '<svg width="18" height="18" fill="none" stroke="#fff" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/></svg>';
+            btn.title = '定位目前位置';
+            L.DomEvent.on(btn, 'click', function (e) {
+              L.DomEvent.stopPropagation(e);
+              if (!navigator.geolocation) { alert('此裝置不支援 GPS'); return; }
+              navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                  const ll = [pos.coords.latitude, pos.coords.longitude];
+                  map.setView(ll, 16);
+                  L.circleMarker(ll, { radius: 8, color: '#fff', fillColor: '#3b82f6', fillOpacity: 1, weight: 2 })
+                    .addTo(map).bindPopup('目前位置').openPopup();
+                },
+                (err) => alert('GPS 定位失敗: ' + err.message),
+                { enableHighAccuracy: true, timeout: 15000 }
+              );
+            });
+            return btn;
+          }
+        });
+        map.addControl(new LocateControl());
+
+        layerGroupRef.current = L.layerGroup().addTo(map);
+        mapInstanceRef.current = map;
+        return () => { map.remove(); mapInstanceRef.current = null; };
+      }, []);
+
+      useEffect(() => {
+        const map = mapInstanceRef.current, lg = layerGroupRef.current;
+        if (!map || !lg) return;
+        lg.clearLayers();
+
+        const bounds = [];
+        const hasResult = result && !result.error;
+        const rayLength = 5000;
+
+        const makeIcon = (color, size) => L.divIcon({
+          className: '',
+          html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};border:3px solid #fff;box-shadow:0 0 12px ${color}80;"></div>`,
+          iconSize: [size, size], iconAnchor: [size/2, size/2],
+        });
+
+        // Draw each station
+        points.forEach((pt, i) => {
+          if (!pt.lat || !pt.lon) return;
+          const lat = parseFloat(pt.lat), lon = parseFloat(pt.lon);
+          if (isNaN(lat) || isNaN(lon)) return;
+          const c = getColor(i);
+          const letter = LETTERS[i] || (i+1);
+          bounds.push([lat, lon]);
+
+          L.marker([lat, lon], { icon: makeIcon(c.hex, 18) }).addTo(lg)
+            .bindPopup(`<b style="color:${c.hex}">接收點 ${letter}</b><br>${lat.toFixed(6)}, ${lon.toFixed(6)}<br>方位角: ${pt.bearing || '—'}°`);
+
+          L.marker([lat, lon], {
+            icon: L.divIcon({ className: '', html: `<div class="custom-marker-label" style="border-left:3px solid ${c.hex};">${letter}</div>`, iconSize: [24,24], iconAnchor: [-8,12] }),
+            interactive: false,
+          }).addTo(lg);
+
+          // Bearing ray (dashed)
+          if (pt.bearing !== '') {
+            const brng = parseFloat(pt.bearing);
+            if (!isNaN(brng)) {
+              const dist = hasResult ? Math.max(haversineDistance(lat, lon, result.bestEstimate.lat, result.bestEstimate.lon) * 1.8, rayLength) : rayLength;
+              const end = destinationPoint(lat, lon, brng, dist);
+              L.polyline([[lat, lon], end], { color: c.hex, weight: 2.5, opacity: 0.7, dashArray: '8, 6' }).addTo(lg);
+            }
+          }
+        });
+
+        if (hasResult) {
+          const { bestEstimate, intersections, polygon, stations } = result;
+
+          // Error polygon
+          if (polygon && polygon.length >= 3) {
+            const polyLatLngs = polygon.map(p => [p.lat, p.lon]);
+            polyLatLngs.push(polyLatLngs[0]); // close
+            L.polygon(polyLatLngs, {
+              color: '#fbbf24', weight: 2, opacity: 0.8,
+              fillColor: '#fbbf24', fillOpacity: 0.15,
+              dashArray: '6, 4',
+            }).addTo(lg).bindPopup('<b style="color:#fbbf24">誤差多邊形</b><br>所有射線交點的凸包範圍');
+          }
+
+          // Pairwise intersection dots (small)
+          intersections.forEach(pt => {
+            L.circleMarker([pt.lat, pt.lon], {
+              radius: 4, color: '#fbbf24', fillColor: '#fbbf24', fillOpacity: 0.8, weight: 1,
+            }).addTo(lg).bindPopup(`交點<br>${pt.lat.toFixed(6)}, ${pt.lon.toFixed(6)}`);
+          });
+
+          // Best estimate marker (green pulsing)
+          bounds.push([bestEstimate.lat, bestEstimate.lon]);
+          L.marker([bestEstimate.lat, bestEstimate.lon], {
+            icon: L.divIcon({
+              className: '',
+              html: `<div style="position:relative;width:28px;height:28px;">
+                <div style="position:absolute;inset:0;border-radius:50%;background:#10b981;opacity:0.3;animation:pulse 2s infinite;"></div>
+                <div style="position:absolute;inset:4px;border-radius:50%;background:#10b981;border:3px solid #fff;box-shadow:0 0 16px #10b98180;"></div>
+              </div>`,
+              iconSize: [28, 28], iconAnchor: [14, 14],
+            }),
+          }).addTo(lg).bindPopup(`<b style="color:#10b981">🐢 最可能位置</b><br>${bestEstimate.lat.toFixed(6)}, ${bestEstimate.lon.toFixed(6)}<br><i>最小平方法估計</i>`);
+
+          L.marker([bestEstimate.lat, bestEstimate.lon], {
+            icon: L.divIcon({ className: '', html: '<div class="custom-marker-label" style="border-left:3px solid #10b981;">🐢 發報器</div>', iconSize: [80,24], iconAnchor: [-8,12] }),
+            interactive: false,
+          }).addTo(lg);
+
+          // Solid lines from each station to best estimate
+          stations.forEach((s, i) => {
+            const c = getColor(i);
+            L.polyline([[s.lat, s.lon], [bestEstimate.lat, bestEstimate.lon]], {
+              color: c.hex, weight: 3, opacity: 0.9,
+            }).addTo(lg);
+          });
+        }
+
+        if (bounds.length >= 2) {
+          map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
+        } else if (bounds.length === 1) {
+          map.setView(bounds[0], 15);
+        }
+      }, [points, result]);
+
+      return (
+        <div className="rounded-2xl overflow-hidden border border-surface-card shadow-card">
+          <div ref={mapRef} id="map" style={{ height: '400px', width: '100%' }}></div>
+        </div>
+      );
+    }
+
+    // ============================================================
+    // App
+    // ============================================================
+    function App() {
+      const [points, setPoints] = useState([
+        { lat: '', lon: '', bearing: '' },
+        { lat: '', lon: '', bearing: '' },
+      ]);
+      const [result, setResult] = useState(null);
+
+      const updatePoint = (i, val) => {
+        const next = [...points]; next[i] = val; setPoints(next);
+      };
+      const addPoint = () => setPoints([...points, { lat: '', lon: '', bearing: '' }]);
+      const deletePoint = (i) => {
+        const next = points.filter((_, idx) => idx !== i);
+        setPoints(next);
+        setResult(null);
+      };
+
+      const handleCalculate = () => {
+        setResult(computeMultiResult(points));
+      };
+
+      return (
+        <div className="min-h-screen bg-surface flex flex-col max-w-lg mx-auto" style={{ paddingBottom: 'env(safe-area-inset-bottom, 16px)' }}>
+          {/* Header */}
+          <div className="header-bg px-5 pt-6 pb-5 rounded-b-3xl mb-5 relative z-10">
+            <div className="relative z-10 text-center">
+              <div className="inline-flex items-center gap-2 bg-white/5 backdrop-blur-sm rounded-full px-4 py-1.5 mb-3 border border-white/10">
+                <span className="text-sm">🐢</span>
+                <span className="text-white text-xs font-medium">柴棺龜 VHF 追蹤系統</span>
+              </div>
+              <h1 className="text-3xl font-extrabold text-white tracking-tight">
+                VHF <span className="text-white">Triangulation</span>
+              </h1>
+              <p className="text-white text-sm mt-1">野生動物無線電追蹤定位</p>
+            </div>
+          </div>
+
+          {/* Content */}
+          <div className="space-y-4 flex-1 px-4">
+            {points.map((pt, i) => (
+              <PointInput
+                key={i} index={i} value={pt}
+                onChange={(val) => updatePoint(i, val)}
+                onDelete={() => deletePoint(i)}
+                canDelete={points.length > 2}
+              />
+            ))}
+
+            {/* Add Point Button */}
+            <button onClick={addPoint}
+              className="w-full h-12 bg-surface-card hover:bg-surface-alt text-white text-base font-semibold rounded-2xl border-2 border-dashed border-accent-light/40 active:scale-[0.98] transition-all duration-150 flex items-center justify-center gap-2">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              新增接收點
+            </button>
+
+            {/* Calculate Button */}
+            <button onClick={handleCalculate}
+              className="btn-calculate w-full h-14 text-white text-xl font-bold rounded-2xl shadow-glow-red active:scale-[0.98] transition-all duration-150 relative">
+              <span className="relative z-10 flex items-center justify-center gap-2">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l5.447 2.724A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                </svg>
+                計算交點
+              </span>
+            </button>
+
+            <ResultDisplay result={result} />
+            <MapView points={points} result={result} />
+          </div>
+
+          <div className="px-4 py-4 mt-4"></div>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+
+  <script>
+    // Register Service Worker for offline PWA
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then((reg) => console.log('[PWA] Service Worker registered, scope:', reg.scope))
+          .catch((err) => console.warn('[PWA] SW registration failed:', err));
+      });
+    }
+  </script>
+</body>
+</html>
