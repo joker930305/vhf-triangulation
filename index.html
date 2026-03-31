@@ -523,12 +523,12 @@
                   <div className="flex-1 min-w-0">
                     <div className="text-white font-semibold text-sm truncate">
                       {r.individual || '(未命名個體)'}
-                      <span className="text-text-muted font-normal"> · {r.habitat || '—'}</span>
+                      <span className="text-white font-normal"> · {r.habitat || '—'}</span>
                     </div>
-                    <div className="text-text-muted text-xs mt-0.5">{r.date} {r.time} &nbsp;·&nbsp; {r.stations.length} 個接收點</div>
-                    <div className="text-text-dim text-xs mt-0.5 font-mono">{r.estimatedLat.toFixed(6)}, {r.estimatedLon.toFixed(6)}</div>
+                    <div className="text-white text-xs mt-0.5">{r.date} {r.time} &nbsp;·&nbsp; {r.stations.length} 個接收點</div>
+                    <div className="text-white text-xs mt-0.5 font-mono">{r.estimatedLat.toFixed(6)}, {r.estimatedLon.toFixed(6)}</div>
                   </div>
-                  <span className="text-text-muted text-xs mt-0.5 flex-shrink-0">#{i + 1}</span>
+                  <span className="text-white text-xs mt-0.5 flex-shrink-0">#{i + 1}</span>
                 </div>
               ))}
             </div>
