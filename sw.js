@@ -13,8 +13,8 @@ const PRECACHE_URLS = [
   'https://unpkg.com/react-dom@18/umd/react-dom.production.min.js',
   // Babel (for JSX transform)
   'https://unpkg.com/@babel/standalone/babel.min.js',
-  // Tailwind CSS CDN
-  'https://cdn.tailwindcss.com',
+  // Tailwind CSS CDN v3
+  'https://cdn.tailwindcss.com/3.4.16',
   // Leaflet
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
