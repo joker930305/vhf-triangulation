@@ -7,9 +7,13 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="VHF 定位" />
-  <link rel="manifest" href="/vhf-triangulation/manifest.json" />
-  <link rel="icon" type="image/svg+xml" href="/vhf-triangulation/icons/icon.svg" />
-  <link rel="apple-touch-icon" href="/vhf-triangulation/icons/icon-192.png" />
+  <script>
+    // Determine base path dynamically
+    window.basePath = window.location.pathname.includes('/vhf-triangulation/') ? '/vhf-triangulation/' : '/';
+    document.write('<link rel="manifest" href="' + window.basePath + 'manifest.json" />');
+    document.write('<link rel="icon" type="image/svg+xml" href="' + window.basePath + 'icons/icon.svg" />');
+    document.write('<link rel="apple-touch-icon" href="' + window.basePath + 'icons/icon-192.png" />');
+  </script>
   <title>VHF Triangulation — 野生動物追蹤</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -916,7 +920,8 @@
     // Register Service Worker for offline PWA
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/vhf-triangulation/sw.js', { scope: '/vhf-triangulation/' })
+        const swPath = window.basePath + 'sw.js';
+        navigator.serviceWorker.register(swPath, { scope: window.basePath })
           .then((reg) => console.log('[PWA] Service Worker registered, scope:', reg.scope))
           .catch((err) => console.warn('[PWA] SW registration failed:', err));
       });
