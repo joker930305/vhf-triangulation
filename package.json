@@ -1,0 +1,10 @@
+{
+  "name": "vhf-triangulation",
+  "version": "1.0.0",
+  "private": true,
+  "devDependencies": {
+    "@babel/cli": "^8.0.0",
+    "@babel/core": "^8.0.0",
+    "@babel/preset-react": "^8.0.0"
+  }
+}
