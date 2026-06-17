@@ -11,39 +11,43 @@
   <link rel="icon" type="image/svg+xml" href="./icons/icon.svg" />
   <link rel="apple-touch-icon" href="./icons/icon-192.png" />
   <title>VHF Triangulation — 野生動物追蹤</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Tailwind config must come BEFORE the CDN script, variable is `tailwind` not `tailwindcss` -->
   <script>
-    tailwindcss.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          colors: {
-            surface: '#1e2035',
-            'surface-alt': '#282a45',
-            'surface-card': '#2f3255',
-            accent: '#1a4a80',
-            'accent-light': '#2560a0',
-            highlight: '#e94560',
-            'highlight-glow': '#ff6b81',
-            emerald: '#10b981',
-            'emerald-dark': '#065f46',
-            text: '#ffffff',
-            'text-dim': '#d0d0e0',
-            'text-muted': '#a8a8c0',
-          },
-          boxShadow: {
-            'glow-red': '0 0 20px rgba(233,69,96,0.3)',
-            'glow-blue': '0 0 20px rgba(59,130,246,0.3)',
-            'glow-green': '0 0 20px rgba(16,185,129,0.3)',
-            'card': '0 4px 24px rgba(0,0,0,0.4)',
-            'input': 'inset 0 2px 4px rgba(0,0,0,0.3)',
+    tailwind = {
+      config: {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              surface: '#1e2035',
+              'surface-alt': '#282a45',
+              'surface-card': '#2f3255',
+              accent: '#1a4a80',
+              'accent-light': '#2560a0',
+              highlight: '#e94560',
+              'highlight-glow': '#ff6b81',
+              emerald: '#10b981',
+              'emerald-dark': '#065f46',
+              text: '#ffffff',
+              'text-dim': '#d0d0e0',
+              'text-muted': '#a8a8c0',
+            },
+            boxShadow: {
+              'glow-red': '0 0 20px rgba(233,69,96,0.3)',
+              'glow-blue': '0 0 20px rgba(59,130,246,0.3)',
+              'glow-green': '0 0 20px rgba(16,185,129,0.3)',
+              'card': '0 4px 24px rgba(0,0,0,0.4)',
+              'input': 'inset 0 2px 4px rgba(0,0,0,0.3)',
+            }
           }
         }
       }
-    }
+    };
   </script>
+  <!-- Use pinned Tailwind v3 CDN to avoid v4 module injection issues -->
+  <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
