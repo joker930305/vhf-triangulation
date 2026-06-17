@@ -3,11 +3,11 @@ const CACHE_NAME = 'vhf-tri-v1';
 
 // Core app + CDN dependencies — cached on install
 const PRECACHE_URLS = [
-  '/vhf-triangulation/',
-  '/vhf-triangulation/index.html',
-  '/vhf-triangulation/manifest.json',
-  '/vhf-triangulation/icons/icon-192.png',
-  '/vhf-triangulation/icons/icon-512.png',
+  './',
+  './index.html',
+  './manifest.json',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
   // React 18
   'https://unpkg.com/react@18/umd/react.production.min.js',
   'https://unpkg.com/react-dom@18/umd/react-dom.production.min.js',
